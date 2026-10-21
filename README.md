@@ -1,5 +1,11 @@
 # CashMine — Payback (Expo web)
 
+## Hey! Deployed on https://cash-mine-lovat.vercel.app/
+
+## Text below is AI
+
+
+
 **Live:** _TBD (Vercel)_ — on first open, paste your API token (stored only in this browser; "Change token" on the home screen).
 
 ## Run locally
