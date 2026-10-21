@@ -48,8 +48,12 @@ npx expo-doctor      # dependency/config sanity
 
 ## Env
 
-`.env.example` → user creates `.env.local` with `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_API_TOKEN`. Accessed only via `src/config/env.ts` (`env.apiUrl`, `env.apiToken`, `isEnvConfigured()`).
-`EXPO_PUBLIC_*` vars are **inlined into the public JS bundle** — the token is visible to anyone who opens the web build. Acceptable for this assessment; note it in NOTES.md. On Vercel, set both vars in Project → Settings → Environment Variables (build-time).
+`.env.example` → user creates `.env.local` with `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_API_TOKEN`. Accessed only via `src/config/env.ts` (`env.apiUrl`, `env.devApiToken`, `isEnvConfigured()`).
+
+**Brief: the token must NOT be in code, repo or the deployed build.** On first open the app asks for the token (text field), keeps it in the browser, and offers a way to change it; graders use their own tokens.
+- `EXPO_PUBLIC_API_TOKEN` is a **dev-only** fallback: `env.devApiToken` is `''` when `!__DEV__`, so production bundles never contain it.
+- On Vercel set **only** `EXPO_PUBLIC_API_URL` (build-time). Never set the token there.
+- TODO before deploy: token entry screen + persisted token store (user-entered token overrides dev token).
 
 ## Architecture
 
