@@ -20,9 +20,11 @@ export function useClaimForm(asset: string) {
   const { attempt, claims, prepareAttempt, completeAttempt, discardAttempt } = useClaimsStore();
 
   // A persisted attempt for this asset whose outcome we never learned (e.g. reload mid-request).
-  const pendingAttempt = attempt?.body.asset === asset ? attempt : null;
-  const [amountText, setAmountText] = useState(pendingAttempt?.body.amount ?? '');
-  const [pickedDestination, setPickedDestination] = useState(pendingAttempt?.body.destinationId);
+  // Captured at mount — the route renders this only after useClaimsReady().
+  const [restored] = useState(() => (attempt?.body.asset === asset ? attempt : null));
+  const [amountText, setAmountText] = useState(restored?.body.amount ?? '');
+  const [pickedDestination, setPickedDestination] = useState(restored?.body.destinationId);
+  const [preparing, setPreparing] = useState(false);
 
   const balance = balances.data?.items.find((item) => item.asset === asset);
   const destinations = options.data?.destinations ?? [];
@@ -53,6 +55,10 @@ export function useClaimForm(asset: string) {
       completeAttempt(claim);
       void queryClient.invalidateQueries({ queryKey: queryKeys.balances });
     },
+    // Definite rejection (4xx): no claim was created, so this key is done with.
+    onError: (error) => {
+      if (!isOutcomeUnknown(error)) void discardAttempt();
+    },
   });
 
   const outcomeUnknown = mutation.isError && isOutcomeUnknown(mutation.error);
@@ -61,19 +67,30 @@ export function useClaimForm(asset: string) {
       ? mutation.error.message
       : null;
 
-  const submit = () => {
-    if (!validation?.ok || !balance || !destinationId || mutation.isPending) return;
+  const busy = preparing || mutation.isPending;
+  const restoredUnconfirmed =
+    !!restored && attempt?.idempotencyKey === restored.idempotencyKey && mutation.isIdle;
+  const hasUnconfirmedAttempt = outcomeUnknown || restoredUnconfirmed;
+
+  const submit = async () => {
+    if (!validation?.ok || !balance || !destinationId || busy) return;
     const body = {
       asset,
       amount: formatAmount(validation.amount, balance.decimals),
       destinationId,
     };
-    mutation.mutate(prepareAttempt(body));
+    setPreparing(true);
+    try {
+      // Awaited: the Idempotency-Key must be durably saved before the request can leave.
+      mutation.mutate(await prepareAttempt(body));
+    } finally {
+      setPreparing(false);
+    }
   };
 
   /** Re-send the exact same body + Idempotency-Key (safe: server replays the original claim). */
   const retrySame = () => {
-    if (attempt && !mutation.isPending) mutation.mutate(attempt);
+    if (attempt && !busy) mutation.mutate(attempt);
   };
 
   const edit = (setter: () => void) => {
@@ -94,13 +111,14 @@ export function useClaimForm(asset: string) {
     claimable,
     unreflected,
     validation,
-    submit,
+    submit: () => void submit(),
     retrySame,
+    busy,
     // Unknown outcome: inputs stay locked to the sent body until the user retries or discards.
-    locked: mutation.isPending || outcomeUnknown || (!!pendingAttempt && mutation.isIdle),
-    hasUnconfirmedAttempt: outcomeUnknown || (!!pendingAttempt && mutation.isIdle),
-    discard: () => {
-      discardAttempt();
+    locked: busy || hasUnconfirmedAttempt,
+    hasUnconfirmedAttempt,
+    discard: async () => {
+      await discardAttempt();
       mutation.reset();
     },
     mutation,

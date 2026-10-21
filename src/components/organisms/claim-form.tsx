@@ -106,8 +106,13 @@ export function ClaimForm({ asset }: { asset: string }) {
             tone="warning"
             message={`We couldn't confirm your claim${mutation.isError ? ` (${errorMessage(mutation.error)})` : ''}. It may have gone through. Retrying sends the same request and can't create a second claim.`}
           />
-          <Button title="Retry safely" onPress={form.retrySame} loading={mutation.isPending} />
-          <Button title="Discard and start over" variant="link" onPress={form.discard} />
+          <Button title="Retry safely" onPress={form.retrySame} loading={form.busy} />
+          <Button
+            title="Discard and start over"
+            variant="link"
+            onPress={() => void form.discard()}
+            disabled={form.busy}
+          />
         </>
       ) : (
         <>
@@ -118,7 +123,7 @@ export function ClaimForm({ asset }: { asset: string }) {
             title="Claim"
             onPress={form.submit}
             disabled={!validation?.ok || !form.destinationId}
-            loading={mutation.isPending}
+            loading={form.busy}
             testID="claim-submit"
           />
         </>
