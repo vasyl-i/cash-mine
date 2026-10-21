@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, type PropsWithChildren } from 'react';
+import { useEffect, useRef, type PropsWithChildren } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { TokenForm } from '@/components/organisms/token-form';
@@ -13,8 +13,14 @@ export function TokenGate({ children }: PropsWithChildren) {
   const token = useEffectiveToken();
   const queryClient = useQueryClient();
 
+  // Reset only on an actual token change (not on mount — clearing under active observers
+  // orphans them and leaves the screen loading forever).
+  const previousToken = useRef(token);
   useEffect(() => {
-    queryClient.clear();
+    if (previousToken.current === token) return;
+    previousToken.current = token;
+    queryClient.removeQueries({ type: 'inactive' });
+    void queryClient.resetQueries();
   }, [token, queryClient]);
 
   if (!hydrated) {
