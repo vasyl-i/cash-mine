@@ -26,7 +26,8 @@ const base = path.basename(rel);
 const ext = path.extname(rel);
 
 const outsideProject = rel.startsWith('..') || path.isAbsolute(rel);
-const skipped = rel.startsWith('node_modules') || rel.startsWith('ai-logs') || rel.startsWith('dist');
+const skipped =
+  rel.startsWith('node_modules') || rel.startsWith('ai-logs') || rel.startsWith('dist');
 if (outsideProject || skipped || base.startsWith('.env') || !FORMATTABLE.has(ext)) process.exit(0);
 
 const run = (cmd, args) =>
